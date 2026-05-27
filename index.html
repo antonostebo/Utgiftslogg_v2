@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -703,6 +704,45 @@ function renderEntries(entries) {
 }
 
 /* ── CHART HELPERS ── */
+function shortCatLabel(name) {
+  // Shorten long category names for pie labels
+  const map = {
+    'Gemensamma utgifter': 'Gemensam.',
+    'Underhållning': 'Underh.',
+  };
+  return map[name] || (name.length > 10 ? name.slice(0,9) + '…' : name);
+}
+
+const datalabelsPlugin = {
+  id: 'datalabels',
+  afterDatasetsDraw(chart) {
+    // Use chartjs-plugin-datalabels if loaded, otherwise skip (handled by plugin itself)
+  }
+};
+
+function datalabelsConfig(labels, values, total, isSmall) {
+  return {
+    display: ctx => {
+      const pct = total > 0 ? values[ctx.dataIndex] / total : 0;
+      return pct > 0.06; // hide label on very small slices
+    },
+    color: '#fff',
+    font: { family: "'DM Sans', sans-serif", size: isSmall ? 9 : 11, weight: '500' },
+    textAlign: 'center',
+    formatter: (val, ctx) => {
+      const pct = total > 0 ? Math.round(val / total * 100) : 0;
+      const name = shortCatLabel(labels[ctx.dataIndex]);
+      return name + '\n' + pct + '%';
+    },
+    anchor: 'center',
+    align: 'center',
+    offset: 0,
+    padding: 2,
+    textShadowColor: 'rgba(0,0,0,0.5)',
+    textShadowBlur: 3,
+  };
+}
+
 function renderCatChart(canvasId, legendId, totals, totalExp, existingInst, setInst) {
   if (existingInst) { existingInst.destroy(); setInst(null); }
   const legendEl = document.getElementById(legendId);
@@ -712,10 +752,21 @@ function renderCatChart(canvasId, legendId, totals, totalExp, existingInst, setI
     setInst(emptyChart(canvasId)); return;
   }
   const activeColors = activeCats.map(c => catColor(c));
+  const values = activeCats.map(c => totals[c]);
+  const isSmall = canvasId.startsWith('acatc'); // archive charts are smaller
   const inst = new Chart(document.getElementById(canvasId).getContext('2d'), {
     type: 'doughnut',
-    data: { labels: activeCats, datasets: [{ data: activeCats.map(c => totals[c]), backgroundColor: activeColors, borderWidth: 2, borderColor: '#16181c', hoverOffset: 4 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + fmt(ctx.parsed) + ' kr' }, backgroundColor: '#262930', titleColor: '#f0f0f0', bodyColor: '#8a8f9a' } } }
+    plugins: [ChartDataLabels],
+    data: { labels: activeCats, datasets: [{ data: values, backgroundColor: activeColors, borderWidth: 2, borderColor: '#16181c', hoverOffset: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '55%',
+      layout: { padding: 10 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + fmt(ctx.parsed) + ' kr' }, backgroundColor: '#262930', titleColor: '#f0f0f0', bodyColor: '#8a8f9a' },
+        datalabels: datalabelsConfig(activeCats, values, totalExp, isSmall)
+      }
+    }
   });
   setInst(inst);
   if (legendEl) legendEl.innerHTML = activeCats.map((c,i) => {
@@ -732,10 +783,24 @@ function renderBudChart(canvasId, legendId, income, totalExp, rest, existingInst
     setInst(emptyChart(canvasId)); return;
   }
   const hasRest = rest > 0;
+  const labels = hasRest ? ['Utgifter','Kvar'] : ['Utgifter'];
+  const values = hasRest ? [totalExp, rest] : [totalExp];
+  const colors = hasRest ? ['#f06060','#4f8ef7'] : ['#f06060'];
+  const total = values.reduce((a,b) => a+b, 0);
+  const isSmall = canvasId.startsWith('abudc');
   const inst = new Chart(document.getElementById(canvasId).getContext('2d'), {
     type: 'doughnut',
-    data: { labels: hasRest ? ['Utgifter','Kvar'] : ['Utgifter'], datasets: [{ data: hasRest ? [totalExp,rest] : [totalExp], backgroundColor: hasRest ? ['#f06060','#4f8ef7'] : ['#f06060'], borderWidth: 2, borderColor: '#16181c', hoverOffset: 4 }] },
-    options: { responsive: true, maintainAspectRatio: false, cutout: '62%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + fmt(ctx.parsed) + ' kr' }, backgroundColor: '#262930', titleColor: '#f0f0f0', bodyColor: '#8a8f9a' } } }
+    plugins: [ChartDataLabels],
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#16181c', hoverOffset: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '55%',
+      layout: { padding: 10 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + fmt(ctx.parsed) + ' kr' }, backgroundColor: '#262930', titleColor: '#f0f0f0', bodyColor: '#8a8f9a' },
+        datalabels: datalabelsConfig(labels, values, total, isSmall)
+      }
+    }
   });
   setInst(inst);
   if (legendEl) {
