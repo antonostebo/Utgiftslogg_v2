@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0e0f11" />
+<title>Utgifter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg-0: #0e0f11;
+    --bg-1: #16181c;
+    --bg-2: #1e2026;
+    --bg-3: #262930;
+    --border: rgba(255,255,255,0.07);
+    --border-strong: rgba(255,255,255,0.13);
+    --text-1: #f0f0f0;
+    --text-2: #8a8f9a;
+    --text-3: #555a66;
+    --accent: #4f8ef7;
+    --accent-dim: rgba(79,142,247,0.15);
+    --green: #3ecf8e;
+    --green-dim: rgba(62,207,142,0.12);
+    --red: #f06060;
+    --red-dim: rgba(240,96,96,0.12);
+    --cat-1: #4f8ef7;
+    --cat-2: #3ecf8e;
+    --cat-3: #f0a050;
+    --cat-4: #c77dda;
+    --cat-5: #f06090;
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 20px;
+    --font: 'DM Sans', sans-serif;
+    --mono: 'DM Mono', monospace;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  html { background: var(--bg-0); color: var(--text-1); font-family: var(--font); font-size: 16px; -webkit-text-size-adjust: 100%; }
+  body { min-height: 100dvh; padding-bottom: calc(72px + var(--safe-bottom)); }
+
+  /* === HEADER === */
+  .header {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(14,15,17,0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px 12px;
+  }
+  .header-inner { max-width: 600px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+  .app-title { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; }
+  .month-nav { display: flex; align-items: center; gap: 8px; }
+  .month-nav button { background: var(--bg-2); border: 1px solid var(--border); color: var(--text-2); width: 32px; height: 32px; border-radius: var(--radius-sm); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; }
+  .month-nav button:active { background: var(--bg-3); color: var(--text-1); }
+  .month-name { font-size: 14px; font-weight: 500; min-width: 100px; text-align: center; color: var(--text-1); }
+
+  /* === MAIN CONTENT === */
+  .main { max-width: 600px; margin: 0 auto; padding: 20px 16px; }
+
+  /* === METRIC CARDS === */
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+  .metric-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px 12px; }
+  .metric-label { font-size: 11px; font-weight: 400; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+  .metric-value { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; font-family: var(--mono); color: var(--text-1); }
+  .metric-value.green { color: var(--green); }
+  .metric-value.red { color: var(--red); }
+
+  /* === SECTION HEADER === */
+  .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .section-title { font-size: 12px; font-weight: 500; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* === CHARTS === */
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px; }
+  .chart-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; }
+  .chart-label { font-size: 11px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 12px; font-weight: 500; }
+  .chart-wrap { position: relative; height: 160px; width: 100%; }
+  .chart-legend { margin-top: 12px; display: flex; flex-direction: column; gap: 5px; }
+  .legend-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-2); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+  .legend-val { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--text-3); }
+  .empty-chart { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 13px; color: var(--text-3); }
+
+  /* === ENTRIES === */
+  .entries-section { margin-bottom: 24px; }
+  .entries-list { display: flex; flex-direction: column; gap: 6px; }
+  .entry-item {
+    background: var(--bg-1); border: 1px solid var(--border);
+    border-radius: var(--radius-md); padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+    animation: fadeIn 0.2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .entry-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .entry-body { flex: 1; min-width: 0; }
+  .entry-top { display: flex; align-items: baseline; gap: 8px; }
+  .entry-cat-name { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+  .entry-desc { font-size: 14px; font-weight: 400; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .entry-date { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+  .entry-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .entry-amount { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--text-1); white-space: nowrap; }
+  .entry-del { background: none; border: none; cursor: pointer; color: var(--text-3); font-size: 18px; line-height: 1; padding: 0; transition: color 0.15s; }
+  .entry-del:hover, .entry-del:active { color: var(--red); }
+  .empty-state { text-align: center; padding: 32px 16px; color: var(--text-3); font-size: 14px; }
+
+  /* === BOTTOM TABS === */
+  .bottom-nav {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(14,15,17,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding-bottom: var(--safe-bottom);
+    z-index: 200;
+  }
+  .nav-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 8px; cursor: pointer; background: none; border: none; color: var(--text-3); font-family: var(--font); font-size: 11px; transition: color 0.15s; -webkit-tap-highlight-color: transparent; }
+  .nav-tab.active { color: var(--accent); }
+  .nav-tab svg { width: 22px; height: 22px; stroke-width: 1.5; }
+
+  /* === ADD FORM (SHEET) === */
+  .sheet-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 300; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+  .sheet-overlay.open { opacity: 1; pointer-events: all; }
+  .sheet {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--bg-1); border-top: 1px solid var(--border-strong);
+    border-radius: 20px 20px 0 0;
+    z-index: 400; padding: 20px 20px calc(24px + var(--safe-bottom));
+    max-width: 600px; margin: 0 auto;
+    transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.32,0.72,0,1);
+  }
+  .sheet.open { transform: translateY(0); }
+  .sheet-handle { width: 36px; height: 4px; background: var(--bg-3); border-radius: 2px; margin: 0 auto 20px; }
+  .sheet-title { font-size: 16px; font-weight: 500; margin-bottom: 20px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 6px; }
+  .field input, .field select {
+    width: 100%; background: var(--bg-2); border: 1px solid var(--border-strong);
+    border-radius: var(--radius-md); color: var(--text-1); font-family: var(--font);
+    font-size: 16px; padding: 12px 14px; outline: none; -webkit-appearance: none; appearance: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); }
+  .field select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23555a66' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .btn-submit { width: 100%; background: var(--accent); color: white; border: none; border-radius: var(--radius-md); font-family: var(--font); font-size: 16px; font-weight: 500; padding: 14px; cursor: pointer; margin-top: 4px; transition: opacity 0.15s; }
+  .btn-submit:active { opacity: 0.8; }
+
+  /* === SETTINGS (INCOME) === */
+  .settings-section { margin-bottom: 24px; }
+  .income-card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+  .income-card h3 { font-size: 13px; font-weight: 500; color: var(--text-2); margin-bottom: 4px; }
+  .income-card p { font-size: 12px; color: var(--text-3); margin-bottom: 16px; }
+  .income-card input { width: 100%; background: var(--bg-2); border: 1px solid var(--border-strong); border-radius: var(--radius-md); color: var(--text-1); font-family: var(--mono); font-size: 20px; padding: 12px 14px; outline: none; -webkit-appearance: none; appearance: none; transition: border-color 0.15s; }
+  .income-card input:focus { border-color: var(--accent); }
+  .income-save { display: inline-block; margin-top: 12px; background: var(--bg-3); border: 1px solid var(--border-strong); color: var(--text-2); font-family: var(--font); font-size: 14px; padding: 8px 18px; border-radius: var(--radius-sm); cursor: pointer; transition: background 0.15s, color 0.15s; }
+  .income-save:active { background: var(--accent-dim); color: var(--accent); }
+
+  /* === FAB (add button) === */
+  .fab { position: fixed; bottom: calc(76px + var(--safe-bottom)); right: 20px; z-index: 250; width: 52px; height: 52px; background: var(--accent); border-radius: 50%; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 20px rgba(79,142,247,0.4); transition: transform 0.15s, box-shadow 0.15s; -webkit-tap-highlight-color: transparent; }
+  .fab:active { transform: scale(0.93); box-shadow: 0 2px 10px rgba(79,142,247,0.3); }
+  .fab svg { width: 24px; height: 24px; stroke: white; stroke-width: 2; }
+
+  /* === PAGE SECTIONS === */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* === UTIL === */
+  .divider { height: 1px; background: var(--border); margin: 20px 0; }
+
+  @media (max-width: 380px) {
+    .charts { grid-template-columns: 1fr; }
+    .metrics { gap: 8px; }
+    .metric-value { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="header-inner">
+    <span class="app-title">Utgifter</span>
+    <div class="month-nav">
+      <button onclick="changeMonth(-1)" aria-label="Föregående månad">&#8249;</button>
+      <span class="month-name" id="month-label">Maj 2026</span>
+      <button onclick="changeMonth(1)" aria-label="Nästa månad">&#8250;</button>
+    </div>
+  </div>
+</header>
+
+<!-- PAGE: OVERVIEW -->
+<main class="main">
+  <div id="page-overview" class="page active">
+
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="metric-label">Inkomst</div>
+        <div class="metric-value green" id="m-income">0</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Utgifter</div>
+        <div class="metric-value red" id="m-expenses">0</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Kvar</div>
+        <div class="metric-value" id="m-rest">0</div>
+      </div>
+    </div>
+
+    <div class="charts">
+      <div class="chart-card">
+        <div class="chart-label">Kategorier</div>
+        <div class="chart-wrap">
+          <canvas id="cat-chart" role="img" aria-label="Utgifter per kategori"></canvas>
+        </div>
+        <div class="chart-legend" id="cat-legend"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-label">Budget</div>
+        <div class="chart-wrap">
+          <canvas id="bud-chart" role="img" aria-label="Budget översikt"></canvas>
+        </div>
+        <div class="chart-legend" id="bud-legend"></div>
+      </div>
+    </div>
+
+    <div class="entries-section">
+      <div class="section-head">
+        <span class="section-title">Transaktioner</span>
+      </div>
+      <div class="entries-list" id="entries-list">
+        <div class="empty-state">Inga utgifter loggade</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PAGE: SETTINGS -->
+  <div id="page-settings" class="page">
+    <div class="settings-section">
+      <div class="section-head"><span class="section-title">Inkomst</span></div>
+      <div class="income-card">
+        <h3>Månadsinkomst</h3>
+        <p>Sparas per månad du navigerar till</p>
+        <input type="number" id="income-input" inputmode="numeric" placeholder="0" />
+        <br/>
+        <button class="income-save" onclick="saveIncome()">Spara</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="section-head"><span class="section-title">Om appen</span></div>
+    <div style="font-size:13px; color:var(--text-3); line-height:1.7;">
+      Data sparas lokalt i din webbläsare (localStorage).<br/>
+      Fungerar offline som PWA på iOS och Android.<br/>
+      <br/>
+      <strong style="color:var(--text-2);">Kategorier:</strong><br/>
+      Gemensamma utgifter · Utemat · Hobby · Underhållning · Tjänster
+    </div>
+  </div>
+</main>
+
+<!-- FAB -->
+<button class="fab" onclick="openSheet()" aria-label="Lägg till utgift">
+  <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+</button>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="nav-tab active" id="tab-overview" onclick="showPage('overview')" aria-label="Översikt">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Översikt
+  </button>
+  <button class="nav-tab" id="tab-settings" onclick="showPage('settings')" aria-label="Inställningar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    Inställningar
+  </button>
+</nav>
+
+<!-- ADD EXPENSE SHEET -->
+<div class="sheet-overlay" id="overlay" onclick="closeSheet()"></div>
+<div class="sheet" id="sheet">
+  <div class="sheet-handle"></div>
+  <div class="sheet-title">Ny utgift</div>
+  <div class="field-row">
+    <div class="field">
+      <label>Datum</label>
+      <input type="date" id="f-date" />
+    </div>
+    <div class="field">
+      <label>Belopp (kr)</label>
+      <input type="number" id="f-amount" inputmode="numeric" placeholder="0" />
+    </div>
+  </div>
+  <div class="field">
+    <label>Kategori</label>
+    <select id="f-cat">
+      <option value="Gemensamma utgifter">Gemensamma utgifter</option>
+      <option value="Utemat">Utemat</option>
+      <option value="Hobby">Hobby</option>
+      <option value="Underhållning">Underhållning</option>
+      <option value="Tjänster">Tjänster</option>
+    </select>
+  </div>
+  <div class="field">
+    <label>Beskrivning (valfritt)</label>
+    <input type="text" id="f-desc" placeholder="T.ex. ICA, Netflix, gymkort…" autocomplete="off" />
+  </div>
+  <button class="btn-submit" onclick="addEntry()">Lägg till</button>
+</div>
+
+<script>
+const CATS = ['Gemensamma utgifter','Utemat','Hobby','Underhållning','Tjänster'];
+const COLORS = ['#4f8ef7','#3ecf8e','#f0a050','#c77dda','#f06090'];
+const MONTH_NAMES = ['Januari','Februari','Mars','April','Maj','Juni','Juli','Augusti','September','Oktober','November','December'];
+
+let viewYear, viewMonth, data = {};
+let catChartInst = null, budChartInst = null;
+
+/* ─── STORAGE ─── */
+function storageKey() { return 'utgifter_v1'; }
+function loadData() {
+  try { data = JSON.parse(localStorage.getItem(storageKey()) || '{}'); } catch(e) { data = {}; }
+}
+function saveData() {
+  try { localStorage.setItem(storageKey(), JSON.stringify(data)); } catch(e) {}
+}
+function monthKey(y, m) { return y + '-' + String(m).padStart(2,'0'); }
+function getMonth(y, m) {
+  const k = monthKey(y, m);
+  if (!data[k]) data[k] = { income: 0, entries: [] };
+  return data[k];
+}
+
+/* ─── INIT ─── */
+function init() {
+  loadData();
+  const now = new Date();
+  viewYear = now.getFullYear();
+  viewMonth = now.getMonth() + 1;
+  document.getElementById('f-date').value = now.toISOString().split('T')[0];
+  syncIncomeInput();
+  render();
+}
+
+/* ─── NAV ─── */
+function showPage(p) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-' + p).classList.add('active');
+  document.getElementById('tab-' + p).classList.add('active');
+  if (p === 'overview') render();
+  if (p === 'settings') syncIncomeInput();
+}
+
+function changeMonth(dir) {
+  viewMonth += dir;
+  if (viewMonth > 12) { viewMonth = 1; viewYear++; }
+  if (viewMonth < 1) { viewMonth = 12; viewYear--; }
+  syncIncomeInput();
+  render();
+}
+
+/* ─── SHEET ─── */
+function openSheet() {
+  document.getElementById('sheet').classList.add('open');
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(() => document.getElementById('f-amount').focus(), 350);
+}
+function closeSheet() {
+  document.getElementById('sheet').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+}
+
+/* ─── INCOME ─── */
+function syncIncomeInput() {
+  const m = getMonth(viewYear, viewMonth);
+  document.getElementById('income-input').value = m.income || '';
+}
+function saveIncome() {
+  const val = parseFloat(document.getElementById('income-input').value) || 0;
+  const m = getMonth(viewYear, viewMonth);
+  m.income = Math.round(val);
+  saveData();
+  render();
+  const btn = document.querySelector('.income-save');
+  btn.textContent = 'Sparat ✓';
+  setTimeout(() => btn.textContent = 'Spara', 1500);
+}
+
+/* ─── ADD ENTRY ─── */
+function addEntry() {
+  const dateVal = document.getElementById('f-date').value;
+  const amount = parseFloat(document.getElementById('f-amount').value);
+  const cat = document.getElementById('f-cat').value;
+  const desc = document.getElementById('f-desc').value.trim();
+  if (!dateVal || !amount || amount <= 0) { alert('Fyll i datum och belopp.'); return; }
+  const d = new Date(dateVal);
+  const m = getMonth(d.getFullYear(), d.getMonth() + 1);
+  m.entries.push({ id: Date.now(), date: dateVal, amount: Math.round(amount), cat, desc });
+  m.entries.sort((a, b) => b.date.localeCompare(a.date));
+  saveData();
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-desc').value = '';
+  closeSheet();
+  render();
+}
+
+/* ─── DELETE ─── */
+function deleteEntry(y, mo, id) {
+  const m = getMonth(y, mo);
+  m.entries = m.entries.filter(e => e.id !== id);
+  saveData();
+  render();
+}
+
+/* ─── FMT ─── */
+function fmt(n) {
+  return Math.round(n).toLocaleString('sv-SE');
+}
+function shortDate(dateStr) {
+  const [, mm, dd] = dateStr.split('-');
+  return dd + '/' + mm;
+}
+
+/* ─── RENDER ─── */
+function render() {
+  document.getElementById('month-label').textContent = MONTH_NAMES[viewMonth - 1] + ' ' + viewYear;
+  const m = getMonth(viewYear, viewMonth);
+  const income = m.income || 0;
+
+  const totals = {};
+  CATS.forEach(c => totals[c] = 0);
+  m.entries.forEach(e => { if (totals[e.cat] !== undefined) totals[e.cat] += e.amount; });
+  const totalExp = Object.values(totals).reduce((a, b) => a + b, 0);
+  const rest = income - totalExp;
+
+  /* metrics */
+  document.getElementById('m-income').textContent = fmt(income) + ' kr';
+  document.getElementById('m-expenses').textContent = fmt(totalExp) + ' kr';
+  const restEl = document.getElementById('m-rest');
+  restEl.textContent = fmt(rest) + ' kr';
+  restEl.className = 'metric-value ' + (rest >= 0 ? 'green' : 'red');
+
+  /* entries */
+  renderEntries(m, m.entries);
+
+  /* charts */
+  renderCatChart(totals, totalExp);
+  renderBudChart(income, totalExp, rest);
+}
+
+function renderEntries(m, entries) {
+  const el = document.getElementById('entries-list');
+  if (!entries.length) { el.innerHTML = '<div class="empty-state">Inga utgifter denna månad</div>'; return; }
+  el.innerHTML = entries.map(e => {
+    const ci = CATS.indexOf(e.cat);
+    const col = ci >= 0 ? COLORS[ci] : '#666';
+    const d = new Date(e.date);
+    return `<div class="entry-item">
+      <span class="entry-dot" style="background:${col}"></span>
+      <div class="entry-body">
+        <div class="entry-top">
+          <span class="entry-cat-name">${e.cat}</span>
+        </div>
+        <div class="entry-desc">${e.desc || '—'}</div>
+        <div class="entry-date">${shortDate(e.date)}</div>
+      </div>
+      <div class="entry-right">
+        <span class="entry-amount">${fmt(e.amount)} kr</span>
+        <button class="entry-del" onclick="deleteEntry(${d.getFullYear()},${d.getMonth()+1},${e.id})" aria-label="Ta bort">×</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderCatChart(totals, totalExp) {
+  if (catChartInst) { catChartInst.destroy(); catChartInst = null; }
+  const legendEl = document.getElementById('cat-legend');
+  const activeCats = CATS.filter(c => totals[c] > 0);
+
+  if (!activeCats.length) {
+    legendEl.innerHTML = '<span style="font-size:12px;color:var(--text-3)">Inga utgifter</span>';
+    catChartInst = new Chart(document.getElementById('cat-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: { labels: ['Inga data'], datasets: [{ data: [1], backgroundColor: ['#1e2026'], borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+    });
+    return;
+  }
+
+  const activeColors = activeCats.map(c => COLORS[CATS.indexOf(c)]);
+  catChartInst = new Chart(document.getElementById('cat-chart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: activeCats, datasets: [{ data: activeCats.map(c => totals[c]), backgroundColor: activeColors, borderWidth: 2, borderColor: '#16181c', hoverOffset: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + fmt(ctx.parsed) + ' kr' }, backgroundColor: '#262930', titleColor: '#f0f0f0', bodyColor: '#8a8f9a', borderColor: '#262930', borderWidth: 1 }
+      }
+    }
+  });
+
+  legendEl.innerHTML = activeCats.map((c, i) => {
+    const pct = totalExp > 0 ? Math.round(totals[c] / totalExp * 100) : 0;
+    return `<div class="legend-row"><span class="legend-dot" style="background:${activeColors[i]}"></span><span>${c}</span><span class="legend-val">${pct}%</span></div>`;
+  }).join('');
+}
+
+function renderBudChart(income, totalExp, rest) {
+  if (budChartInst) { budChartInst.destroy(); budChartInst = null; }
+  const legendEl = document.getElementById('bud-legend');
+
+  if (!income && !totalExp) {
+    legendEl.innerHTML = '<span style="font-size:12px;color:var(--text-3)">Ange inkomst</span>';
+    budChartInst = new Chart(document.getElementById('bud-chart').getContext('2d'), {
+      type: 'doughnut',
+      data: { labels: ['Ingen data'], datasets: [{ data: [1], backgroundColor: ['#1e2026'], borderWidth: 0 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: false } } }
+    });
+    return;
+  }
+
+  const hasRest = rest > 0;
+  const labels = hasRest ? ['Utgifter', 'Kvar'] : ['Utgifter'];
+  const values = hasRest ? [totalExp, rest] : [totalExp];
+  const colors = hasRest ? ['#f06060', '#4f8ef7'] : ['#f06060'];
+
+  budChartInst = new Chart(document.getElementById('bud-chart').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: '#16181c', hoverOffset: 4 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '62%',
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + fmt(ctx.parsed) + ' kr' }, backgroundColor: '#262930', titleColor: '#f0f0f0', bodyColor: '#8a8f9a', borderColor: '#262930', borderWidth: 1 }
+      }
+    }
+  });
+
+  const rows = [];
+  if (income > 0) rows.push(`<div class="legend-row"><span class="legend-dot" style="background:#3ecf8e"></span><span>Inkomst</span><span class="legend-val">${fmt(income)} kr</span></div>`);
+  rows.push(`<div class="legend-row"><span class="legend-dot" style="background:#f06060"></span><span>Utgifter</span><span class="legend-val">${fmt(totalExp)} kr</span></div>`);
+  if (hasRest) rows.push(`<div class="legend-row"><span class="legend-dot" style="background:#4f8ef7"></span><span>Kvar</span><span class="legend-val">${fmt(rest)} kr</span></div>`);
+  legendEl.innerHTML = rows.join('');
+}
+
+init();
+</script>
+</body>
+</html>
